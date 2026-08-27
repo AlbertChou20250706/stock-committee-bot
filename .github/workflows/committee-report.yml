@@ -89,7 +89,14 @@ jobs:
       - name: Commit reports if changed
         run: git diff --staged --quiet || git commit -m "committee report $(date +%F)"
 
-      - run: git push
+      - name: Push report (retry on race with other workflows/pushes)
+        run: |
+          for i in 1 2 3; do
+            git push && exit 0
+            echo "push rejected, pulling and retrying ($i)..."
+            git pull --rebase origin main
+          done
+          git push
 
       - name: Notify failure
         if: failure()
