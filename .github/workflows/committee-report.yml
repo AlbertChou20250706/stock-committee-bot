@@ -1,0 +1,98 @@
+name: committee-report
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'   # UTC 週一 00:00 = 台灣週一 08:00 — 跑 config/must_watch.json 全部標的
+  workflow_dispatch:
+    inputs:
+      main:
+        description: '主要標的 MAIN（例如 3706.TW）。留空則改跑 config/must_watch.json 全部標的'
+        required: false
+        default: ''
+      compare:
+        description: '比較組 COMPARE，逗號分隔（例如 2317.TW,2382.TW）。只在有填 main 時使用'
+        required: false
+        default: ''
+      capital:
+        description: '總資金 TWD'
+        required: false
+        default: '200000'
+      risk_pct:
+        description: '單筆最大風險 %'
+        required: false
+        default: '2'
+      rs_lookback:
+        description: 'RS 回看交易日數'
+        required: false
+        default: '25'
+      rs_pass:
+        description: 'RS 至少通過檔數'
+        required: false
+        default: '2'
+      stop_loss_pct:
+        description: '止損 %（低於進場價的百分比）'
+        required: false
+        default: '8'
+      target_pct:
+        description: '目標報酬 %'
+        required: false
+        default: '20'
+      use_web_search:
+        description: '是否讓數據研究員使用網路搜尋最新消息'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-send:
+    runs-on: ubuntu-latest
+    env:
+      MAIN: ${{ github.event.inputs.main }}
+      COMPARE: ${{ github.event.inputs.compare }}
+      CAPITAL: ${{ github.event.inputs.capital || '200000' }}
+      RISK_PCT: ${{ github.event.inputs.risk_pct || '2' }}
+      RS_LOOKBACK: ${{ github.event.inputs.rs_lookback || '25' }}
+      RS_PASS: ${{ github.event.inputs.rs_pass || '2' }}
+      STOP_LOSS_PCT: ${{ github.event.inputs.stop_loss_pct || '8' }}
+      TARGET_PCT: ${{ github.event.inputs.target_pct || '20' }}
+      USE_WEB_SEARCH: ${{ github.event.inputs.use_web_search || 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install -r requirements.txt
+
+      - name: Compute data and generate report(s)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python src/run_committee.py
+
+      - name: Send to LINE
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_PUSH_TARGET_IDS: ${{ secrets.LINE_PUSH_TARGET_IDS }}
+        run: python src/send_line.py
+
+      - name: Archive reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - run: git add reports/
+
+      - name: Commit reports if changed
+        run: git diff --staged --quiet || git commit -m "committee report $(date +%F)"
+
+      - run: git push
+
+      - name: Notify failure
+        if: failure()
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_PUSH_TARGET_IDS: ${{ secrets.LINE_PUSH_TARGET_IDS }}
+        run: python src/notify_failure.py

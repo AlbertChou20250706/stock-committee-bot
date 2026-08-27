@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+<title>AI Stock Investment Committee — Prompt Generator</title>
+<!-- ============================================================ -->
+<!-- 概要(がいよう / Gaiyou) : Offline Prompt Generator v3.2.0.    -->
+<!-- 機能(きのう / Kinou) : i18n(zh/en/ja) + 4 themes + mobile RWD -->
+<!-- + industry auto-detect + EXTENSIBLE catalog (add/remove/      -->
+<!-- import/export, localStorage). No claude.ai runtime dependency.-->
+<!-- 設計者(せっけいしゃ / Sekkeisha) : Albert.Chou                 -->
+<!-- ============================================================ -->
+<style>
+/* ===== 既定テーマ(Default theme) = Dark Tech ===== */
+:root{
+  --bg:#0a0e14; --bg2:#0e141d; --panel:#11161f; --panel2:#0d1219;
+  --line:#1d2733; --line2:#28343f;
+  --ink:#dbe4ee; --ink-dim:#8a99ab; --ink-faint:#5a6675;
+  --info:#38bdf8; --pass:#34d399; --fail:#fb923c; --error:#f87171;
+  --critical-bg:#b91c1c; --critical-ink:#ffffff;
+  --accent:#5eead4; --accent-deep:#14b8a6; --on-accent:#04201c; --gold:#d6b370;
+  --grid:rgba(94,234,212,.05);
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+[data-theme="lighttech"]{
+  --bg:#eef3f7; --bg2:#ffffff; --panel:#ffffff; --panel2:#f6f9fb;
+  --line:#dbe4ec; --line2:#c4d2dd;
+  --ink:#0f1d2a; --ink-dim:#4d6276; --ink-faint:#8499aa;
+  --info:#0284c7; --pass:#059669; --fail:#c2620a; --error:#dc2626;
+  --critical-bg:#dc2626; --critical-ink:#ffffff;
+  --accent:#0d9488; --accent-deep:#0f766e; --on-accent:#ffffff; --gold:#9a7b2e;
+  --grid:rgba(13,148,136,.06);
+}
+[data-theme="whiteblack"]{
+  --bg:#ffffff; --bg2:#fafafa; --panel:#ffffff; --panel2:#f4f4f4;
+  --line:#d0d0d0; --line2:#aeaeae;
+  --ink:#000000; --ink-dim:#3a3a3a; --ink-faint:#6e6e6e;
+  --info:#0050c8; --pass:#057a4e; --fail:#b85c00; --error:#c81e1e;
+  --critical-bg:#c81e1e; --critical-ink:#ffffff;
+  --accent:#006b59; --accent-deep:#00513f; --on-accent:#ffffff; --gold:#7a5f15;
+  --grid:rgba(0,0,0,.05);
+}
+[data-theme="blackwhite"]{
+  --bg:#000000; --bg2:#0a0a0a; --panel:#0d0d0d; --panel2:#070707;
+  --line:#2a2a2a; --line2:#3d3d3d;
+  --ink:#ffffff; --ink-dim:#c4c4c4; --ink-faint:#8a8a8a;
+  --info:#4cc4ff; --pass:#3ee6a0; --fail:#ffae42; --error:#ff6b6b;
+  --critical-bg:#e02424; --critical-ink:#ffffff;
+  --accent:#00ffcc; --accent-deep:#00d9b0; --on-accent:#001a14; --gold:#e6c46a;
+  --grid:rgba(255,255,255,.05);
+}
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px),var(--bg);background-size:42px 42px,42px 42px,auto;color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.55;min-height:100vh;transition:background-color .2s,color .2s;-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+header.bar{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line2);padding-bottom:14px;margin-bottom:14px}
+.brand h1{font-size:23px;margin:0;letter-spacing:.2px}
+.brand h1 .ai{color:var(--accent)}
+.brand .sub{color:var(--ink-dim);font-size:12px;margin-top:4px}
+.meta{display:flex;gap:7px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;align-items:center}
+.chip{border:1px solid var(--line2);border-radius:999px;padding:5px 10px;color:var(--ink-dim);background:var(--panel)}
+.chip b{color:var(--ink)}.chip.gold{border-color:var(--gold);color:var(--gold)}
+#clock{color:var(--accent)}
+.selwrap{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+select.sel{appearance:none;-webkit-appearance:none;background:var(--bg2);color:var(--ink);border:1px solid var(--line2);border-radius:8px;padding:6px 26px 6px 10px;font-family:var(--mono);font-size:11px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--ink-dim) 50%),linear-gradient(135deg,var(--ink-dim) 50%,transparent 50%);background-position:calc(100% - 14px) 52%,calc(100% - 9px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+select.sel:focus{outline:none;border-color:var(--accent-deep)}
+/* 重要(じゅうよう) : fix invisible dropdown — force option bg/color */
+select.sel option{background-color:var(--bg2);color:var(--ink)}
+#verband{font-family:var(--mono);font-size:12px;border-radius:9px;padding:9px 12px;margin-bottom:14px;border:1px solid var(--line2);background:var(--panel);display:flex;gap:10px;align-items:center}
+#verband .tag{font-weight:600}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card .head{display:flex;align-items:center;gap:8px;margin:-2px 0 12px;font-family:var(--mono);font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-faint)}
+.card .head::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--accent-deep)}
+.card .head .ln{flex:1;height:1px;background:var(--line)}
+label.fld{display:block;margin-bottom:11px}
+label.fld .lab{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-dim);margin-bottom:5px}
+label.fld .lab .hint{color:var(--ink-faint);font-family:var(--mono);font-size:10.5px}
+.lab .hl{color:var(--accent)}
+input[type=text],input[type=number],input[type=date],input[type=time],textarea{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;outline:none}
+input:focus,textarea:focus{border-color:var(--accent-deep);box-shadow:0 0 0 3px var(--grid)}
+textarea{resize:vertical;min-height:50px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 11px}
+.qchip{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line2);background:var(--bg2);color:var(--ink-dim);border-radius:999px;padding:5px 9px;cursor:pointer;transition:.12s;display:inline-flex;align-items:center;gap:6px}
+.qchip:hover{border-color:var(--accent-deep);color:var(--accent)}
+.qchip .x{color:var(--error);font-weight:700;cursor:pointer}
+.qchip.user{border-color:var(--accent-deep)}
+.chips-lbl{font-size:10.5px;color:var(--ink-faint);font-family:var(--mono);width:100%;margin-bottom:2px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;user-select:none;border:1px solid var(--line2);border-radius:8px;padding:9px 10px;background:var(--bg2);margin-bottom:7px}
+.toggle span{font-size:11.5px;color:var(--ink-dim)}
+.toggle .sw{width:36px;height:20px;border-radius:999px;background:var(--line2);position:relative;transition:.18s;flex:none}
+.toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--ink-faint);transition:.18s}
+.toggle.on .sw{background:var(--accent-deep)}
+.toggle.on .sw::after{left:18px;background:var(--on-accent)}
+button{font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;border-radius:9px;padding:12px 14px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);transition:transform .08s,border-color .15s}
+button:hover{border-color:var(--accent-deep)}button:active{transform:translateY(1px)}
+button.primary{width:100%;background:var(--accent);border-color:var(--accent-deep);color:var(--on-accent);margin-top:6px;font-weight:600}
+button.ghost{background:transparent;color:var(--ink-dim)}
+button.sm{padding:8px 11px;font-size:11px}
+.btnrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btnrow button{flex:1;min-width:130px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:560px){.steps{grid-template-columns:1fr}}
+.stepbox{border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--panel)}
+.stepbox .n{font-family:var(--mono);font-size:10px;color:var(--accent)}
+.stepbox .t{font-weight:600;font-size:12.5px;margin:3px 0 2px}
+.stepbox .d{font-size:11px;color:var(--ink-dim);line-height:1.5}
+#prompt{width:100%;min-height:200px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:12px;font-family:var(--mono);font-size:12px;line-height:1.6;resize:vertical}
+.term{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;margin-top:14px;overflow:hidden}
+.term .tbar{display:flex;align-items:center;gap:7px;padding:8px 11px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);flex-wrap:wrap}
+.term .tbar .dot{width:9px;height:9px;border-radius:50%}
+.term .tbar .actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.term .tbar button{padding:5px 9px;font-size:10px;font-family:var(--mono);font-weight:500}
+#log{font-family:var(--mono);font-size:11px;line-height:1.55;padding:10px 12px;height:140px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.disc{margin-top:13px;border:1px solid var(--line2);background:var(--panel);color:var(--fail);border-radius:9px;padding:9px 12px;font-size:11.5px}
+/* ===== 管理(かんり / Kanri) : manage symbols card ===== */
+.manage{margin-top:14px}
+.manage .mrow{display:grid;grid-template-columns:1.2fr 1fr 1.4fr auto;gap:8px;margin-bottom:9px}
+@media(max-width:620px){.manage .mrow{grid-template-columns:1fr 1fr}}
+.manage .mrow2{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:9px}
+.manage input,.manage select.sel{padding:9px 10px}
+.manage .note{font-size:10.5px;color:var(--ink-faint);line-height:1.55;margin-top:4px}
+details.cl{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+details.cl summary{cursor:pointer;padding:11px 13px;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);letter-spacing:.5px}
+details.cl .body{padding:0 14px 13px;font-size:11.5px;color:var(--ink-dim);line-height:1.7}
+details.cl .body b{color:var(--ink)}
+@media(max-width:480px){.wrap{padding:14px 12px 50px}.brand h1{font-size:20px}.btnrow button{min-width:100%}header.bar{align-items:flex-start}}
+</style>
+</head>
+<body data-theme="darktech">
+<div class="wrap">
+
+<header class="bar">
+  <div class="brand">
+    <h1><span class="ai">AI</span> <span data-i18n="title">Stock Investment Committee</span></h1>
+    <div class="sub" data-i18n="subtitle">Prompt Generator · runs offline · paste into claude.ai</div>
+  </div>
+  <div class="meta">
+    <div class="selwrap">
+      <select id="lang" class="sel" aria-label="Language">
+        <option value="zh">繁體中文</option><option value="en">English</option><option value="ja">日本語</option>
+      </select>
+      <select id="theme" class="sel" aria-label="Theme">
+        <option value="darktech" data-i18n="th_darktech">Dark tech</option>
+        <option value="lighttech" data-i18n="th_lighttech">Light tech</option>
+        <option value="blackwhite" data-i18n="th_blackwhite">White on black</option>
+        <option value="whiteblack" data-i18n="th_whiteblack">Black on white</option>
+      </select>
+    </div>
+    <span class="chip">v<b>3.2.0</b></span>
+    <span class="chip gold">Albert.Chou</span>
+    <span class="chip">UTC+8 <b id="clock">—</b></span>
+  </div>
+</header>
+
+<div id="verband"><span class="tag" id="vtag">INFO</span><span id="vmsg" data-i18n="ver_ok">App version OK.</span></div>
+
+<div class="grid">
+  <aside class="card">
+    <div class="head"><span data-i18n="inputs_flags">Inputs &amp; Flags</span><span class="ln"></span></div>
+    <label class="fld"><span class="lab"><span data-i18n="main_symbol">MAIN symbol</span> <span class="hint hl" id="detected">.TW</span></span><input id="main" type="text" value="3706" /></label>
+    <label class="fld"><span class="lab"><span data-i18n="compare_group">COMPARE group</span> <span class="hint" data-i18n="comma_space">comma / space</span></span><textarea id="compare">2356, 2382, 2317, 3231, 6669</textarea></label>
+
+    <label class="fld"><span class="lab"><span data-i18n="industry">Industry preset</span> <span class="hint" data-i18n="auto_hint">auto from MAIN</span></span>
+      <select id="industry" class="sel" style="width:100%;box-sizing:border-box"></select>
+    </label>
+    <div class="chips" id="chips"><span class="chips-lbl" data-i18n="quick_add">Tap to add:</span></div>
+
+    <div class="row2">
+      <label class="fld"><span class="lab" data-i18n="scan_from">Scan from</span><input id="from" type="date" value="2026-01-22" /></label>
+      <label class="fld"><span class="lab" data-i18n="scan_to">Scan to</span><input id="to" type="date" value="2026-12-31" /></label>
+    </div>
+
+    <div class="head" style="margin-top:6px"><span data-i18n="tunable">Tunable Parameters</span><span class="ln"></span></div>
+    <div class="row2">
+      <label class="fld"><span class="lab" data-i18n="capital">Capital</span><input id="capital" type="number" value="200000" /></label>
+      <label class="fld"><span class="lab" data-i18n="max_risk">Max risk %</span><input id="risk" type="number" value="2" /></label>
+      <label class="fld"><span class="lab" data-i18n="rs_lookback">RS lookback</span><input id="rslb" type="number" value="25" /></label>
+      <label class="fld"><span class="lab" data-i18n="rs_pass">RS pass ≥</span><input id="rspass" type="number" value="2" /></label>
+      <label class="fld"><span class="lab" data-i18n="target">Target %</span><input id="target" type="number" value="20" /></label>
+      <label class="fld"><span class="lab" data-i18n="run_at">Run at (UTC+8)</span><input id="sched" type="time" /></label>
+    </div>
+
+    <div class="head" style="margin-top:6px"><span data-i18n="custom_flags">Custom Flags</span><span class="ln"></span></div>
+    <div class="toggle on" data-flag="web"><span data-i18n="flag_web">-WebData</span><div class="sw"></div></div>
+    <div class="toggle" data-flag="diag"><span data-i18n="flag_diag">-Diagnostics</span><div class="sw"></div></div>
+
+    <button id="gen" class="primary" data-i18n="btn_generate">▶ Generate prompt</button>
+  </aside>
+
+  <main>
+    <div class="steps">
+      <div class="stepbox"><div class="n">STEP 1</div><div class="t" data-i18n="s1t">Generate</div><div class="d" data-i18n="s1d">Set inputs, press the button.</div></div>
+      <div class="stepbox"><div class="n">STEP 2</div><div class="t" data-i18n="s2t">Copy</div><div class="d" data-i18n="s2d">Press Copy.</div></div>
+      <div class="stepbox"><div class="n">STEP 3</div><div class="t" data-i18n="s3t">Paste into claude.ai</div><div class="d" data-i18n="s3d">Open claude.ai, paste, send.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="head"><span data-i18n="generated">Generated Prompt</span><span class="ln"></span></div>
+      <textarea id="prompt" readonly></textarea>
+      <div class="btnrow">
+        <button id="copy" class="primary" style="width:auto" data-i18n="btn_copy">⧉ Copy</button>
+        <button id="dltxt" class="ghost" data-i18n="btn_dltxt">⬇ .txt</button>
+        <button id="open" class="ghost" data-i18n="btn_open">↗ claude.ai</button>
+      </div>
+    </div>
+
+    <!-- ===== 管理パネル(Manage symbols panel) : EXTENSIBLE ===== -->
+    <div class="card manage">
+      <div class="head"><span data-i18n="manage">Manage symbols</span><span class="ln"></span></div>
+      <div class="mrow">
+        <select id="m-cat" class="sel"></select>
+        <input id="m-code" type="text" data-i18n-ph="code_ph" placeholder="Code" />
+        <input id="m-name" type="text" data-i18n-ph="name_ph" placeholder="Name" />
+        <button id="m-add" class="sm" data-i18n="btn_add">+ Add</button>
+      </div>
+      <div class="mrow2">
+        <input id="m-indname" type="text" data-i18n-ph="indname_ph" placeholder="New industry name" />
+        <button id="m-addind" class="sm" data-i18n="btn_addind">+ Industry</button>
+      </div>
+      <div class="btnrow">
+        <button id="m-export" class="ghost" data-i18n="btn_export">⬇ Export JSON</button>
+        <button id="m-import" class="ghost" data-i18n="btn_import">⬆ Import JSON</button>
+        <button id="m-reset" class="ghost" data-i18n="btn_reset">↺ Reset</button>
+        <input id="m-file" type="file" accept="application/json,.json" style="display:none" />
+      </div>
+      <div class="note" id="m-note" data-i18n="manage_note">Add your own symbols/industries. Saved locally in your browser; use Export/Import to back up or move between devices.</div>
+    </div>
+
+    <div class="term">
+      <div class="tbar">
+        <span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fb923c"></span><span class="dot" style="background:#34d399"></span>
+        <span style="margin-left:6px" data-i18n="log_title">committee — session log</span>
+        <span class="actions"><button id="dllog">⬇ OS .log</button><button id="dlhtml">⬇ HTML .html</button><button id="clr" data-i18n="btn_clear">clear</button></span>
+      </div>
+      <div id="log"></div>
+    </div>
+
+    <div class="disc" data-i18n="disclaimer">⚠ For educational use only. NOT investment advice.</div>
+
+    <details class="cl">
+      <summary data-i18n="changelog">▸ CHANGELOG / version history</summary>
+      <div class="body">
+        <b>v3.2.0</b> (2026-06-08) — Extensible catalog: add/remove industries &amp; symbols in-app, localStorage auto-save, JSON import/export.<br>
+        <b>v3.1.0</b> (2026-06-08) — i18n (zh/en/ja), 4 themes, mobile RWD, industry presets + auto-detect.<br>
+        <b>v3.0.0</b> (2026-06-08) — Plan A: offline Prompt Generator.<br>
+        <b>v2.1.0</b> (2026-06-08) — sendPrompt edition.<br>
+        <b>v2.0.0</b> (2026-06-04) — Renderable Web Edition.<br>
+        <b>v1.0.0</b> (2026-06-03) — CrewAI Python + Streamlit.<br>
+        <b>v3.2</b> (2025-09-21) — Original PowerShell TWSE pipeline (Albert.Chou).
+      </div>
+    </details>
+  </main>
+</div>
+</div>
+
+<script>
+// ============================================================
+// 設定(せってい / Settei) : CONFIG
+// ============================================================
+var CONFIG = { APP_VERSION:"3.2.0", RECOMMENDED:"3.2.0", DESIGNER:"Albert.Chou", CLAUDE_URL:"https://claude.ai", STORE_KEY:"committee_usercat_v1" };
+var LVL = { INFO:"info", PASS:"pass", FAIL:"fail", ERROR:"error", CRITICAL:"critical" };
+
+// ============================================================
+// 多言語(たげんご / Tagengo) : i18n (zh / en / ja)
+// ============================================================
+var I18N = {
+  zh:{
+    title:"股市投資決策委員會", subtitle:"提示產生器 · 離線可用 · 貼到 claude.ai",
+    ver_ok:"版本正常 (v"+CONFIG.APP_VERSION+")。離線提示產生器就緒。",
+    inputs_flags:"輸入與旗標", main_symbol:"主要標的", compare_group:"比較組", comma_space:"逗號／空格分隔",
+    industry:"產業預設", auto_hint:"依主要標的自動", quick_add:"點擊加入：", scan_from:"起始日", scan_to:"結束日",
+    tunable:"可調參數", capital:"總資金", max_risk:"單筆風險 %", rs_lookback:"RS 回看", rs_pass:"RS 通過 ≥", target:"目標報酬 %", run_at:"執行時間 (UTC+8)",
+    custom_flags:"自訂旗標", flag_web:"-WebData（用最新消息）", flag_diag:"-Diagnostics（詳細請求）",
+    btn_generate:"▶ 產生提示", s1t:"產生", s1d:"設定參數，按按鈕。", s2t:"複製", s2d:"按複製。", s3t:"貼到 claude.ai", s3d:"開 claude.ai，貼上，送出。",
+    generated:"已產生的提示", btn_copy:"⧉ 複製", btn_dltxt:"⬇ .txt", btn_open:"↗ claude.ai",
+    manage:"管理代號（可擴充）", code_ph:"代號", name_ph:"名稱", indname_ph:"新產業名稱",
+    btn_add:"＋ 加入代號", btn_addind:"＋ 新增產業", btn_export:"⬇ 匯出 JSON", btn_import:"⬆ 匯入 JSON", btn_reset:"↺ 重設內建",
+    manage_note:"可新增自己的代號與產業。資料自動存在你的瀏覽器；用「匯出／匯入」備份或跨裝置搬移。標 × 者為自訂、可刪除。",
+    log_title:"委員會 — 工作階段日誌", btn_clear:"清除",
+    disclaimer:"⚠ 僅供教育用途，非投資建議；市場有風險，請自行研究並諮詢合格顧問。",
+    changelog:"▸ 變更履歷 / 版本歷史",
+    th_darktech:"深色科技", th_lighttech:"淺色科技", th_blackwhite:"黑底白字", th_whiteblack:"白底黑字",
+    L_boot:"啟動 — 股市投資決策委員會 v"+CONFIG.APP_VERSION+"（方案 A，離線）。",
+    L_ready:"就緒。設定參數後按「產生提示」。",
+    L_built:"提示已產生 — 主要標的=", L_compare:" · 比較組=", L_none:"（無）",
+    L_copyok:"已複製到剪貼簿。到 claude.ai 貼上（Ctrl+V）。", L_copylegacy:"已複製（相容模式）。", L_copyfail:"自動複製被阻擋，請手動全選複製。",
+    L_nocopy:"沒有可複製內容，請先產生提示。", L_nogen:"請先產生提示。", L_txt:"提示已下載（.txt）。", L_oslog:"OS 日誌已下載（.log）。", L_htmllog:"HTML 日誌已下載（.html）。",
+    L_sched:"排程提醒：你設定了 (UTC+8)，方案 A 為手動，請屆時自行貼上 → ",
+    L_lang:"語言已切換：", L_theme:"主題已切換：", L_autocat:"已依主要標的自動切換產業：", L_nocat:"主要標的非內建代號，請用下拉手動選產業。",
+    L_added:"已加入代號：", L_removed:"已刪除自訂代號：", L_addind:"已新增產業：", L_dup:"代號已存在，未重複加入。",
+    L_needcode:"請輸入代號與名稱。", L_needind:"請輸入產業名稱。",
+    L_exported:"已匯出自訂清單（committee_catalog.json）。", L_imported:"已匯入並合併自訂清單。", L_importfail:"匯入失敗：JSON 格式不正確。",
+    L_reset:"已重設為內建清單。", L_nostore:"此環境不支援自動儲存（沙箱）；請用「匯出／匯入」備份。", L_loaded:"已載入你的自訂清單。",
+    DETECT_OK:"✓ ", DETECT_NO:"非內建代號"
+  },
+  en:{
+    title:"Stock Investment Committee", subtitle:"Prompt Generator · runs offline · paste into claude.ai",
+    ver_ok:"App version OK (v"+CONFIG.APP_VERSION+"). Offline generator ready.",
+    inputs_flags:"Inputs & Flags", main_symbol:"MAIN symbol", compare_group:"COMPARE group", comma_space:"comma / space",
+    industry:"Industry preset", auto_hint:"auto from MAIN", quick_add:"Tap to add:", scan_from:"Scan from", scan_to:"Scan to",
+    tunable:"Tunable Parameters", capital:"Capital", max_risk:"Max risk %", rs_lookback:"RS lookback", rs_pass:"RS pass ≥", target:"Target %", run_at:"Run at (UTC+8)",
+    custom_flags:"Custom Flags", flag_web:"-WebData (use latest news)", flag_diag:"-Diagnostics (verbose request)",
+    btn_generate:"▶ Generate prompt", s1t:"Generate", s1d:"Set inputs, press the button.", s2t:"Copy", s2d:"Press Copy.", s3t:"Paste into claude.ai", s3d:"Open claude.ai, paste, send.",
+    generated:"Generated Prompt", btn_copy:"⧉ Copy", btn_dltxt:"⬇ .txt", btn_open:"↗ claude.ai",
+    manage:"Manage symbols (extensible)", code_ph:"Code", name_ph:"Name", indname_ph:"New industry name",
+    btn_add:"+ Add symbol", btn_addind:"+ Add industry", btn_export:"⬇ Export JSON", btn_import:"⬆ Import JSON", btn_reset:"↺ Reset",
+    manage_note:"Add your own symbols/industries. Saved locally in your browser; use Export/Import to back up or move between devices. Items with × are custom and removable.",
+    log_title:"committee — session log", btn_clear:"clear",
+    disclaimer:"⚠ For educational use only. NOT investment advice. Markets carry risk — do your own research.",
+    changelog:"▸ CHANGELOG / version history",
+    th_darktech:"Dark tech", th_lighttech:"Light tech", th_blackwhite:"White on black", th_whiteblack:"Black on white",
+    L_boot:"Boot — Stock Investment Committee v"+CONFIG.APP_VERSION+" (Plan A, offline).",
+    L_ready:"Ready. Set inputs and press Generate prompt.",
+    L_built:"Prompt built — MAIN=", L_compare:" · COMPARE=", L_none:"(none)",
+    L_copyok:"Copied to clipboard. Paste into claude.ai (Ctrl+V).", L_copylegacy:"Copied (legacy mode).", L_copyfail:"Auto-copy blocked. Select the box and copy manually.",
+    L_nocopy:"Nothing to copy — generate the prompt first.", L_nogen:"Generate the prompt first.", L_txt:"Prompt downloaded (.txt).", L_oslog:"OS log downloaded (.log).", L_htmllog:"HTML log downloaded (.html).",
+    L_sched:"Scheduler note: you set (UTC+8). Plan A is manual — paste yourself at → ",
+    L_lang:"Language switched: ", L_theme:"Theme switched: ", L_autocat:"Auto-switched industry from MAIN: ", L_nocat:"MAIN is not a built-in symbol — pick an industry manually.",
+    L_added:"Symbol added: ", L_removed:"Custom symbol removed: ", L_addind:"Industry added: ", L_dup:"Symbol already exists; not added.",
+    L_needcode:"Enter both code and name.", L_needind:"Enter an industry name.",
+    L_exported:"Exported custom catalog (committee_catalog.json).", L_imported:"Imported and merged custom catalog.", L_importfail:"Import failed: invalid JSON.",
+    L_reset:"Reset to built-in catalog.", L_nostore:"This environment can't auto-save (sandbox); use Export/Import to back up.", L_loaded:"Loaded your saved catalog.",
+    DETECT_OK:"✓ ", DETECT_NO:"not built-in"
+  },
+  ja:{
+    title:"株式投資意思決定委員会", subtitle:"プロンプト生成 · オフライン動作 · claude.ai に貼付",
+    ver_ok:"バージョン正常 (v"+CONFIG.APP_VERSION+")。オフライン生成器の準備完了。",
+    inputs_flags:"入力とフラグ", main_symbol:"主要銘柄", compare_group:"比較グループ", comma_space:"カンマ／スペース区切り",
+    industry:"業種プリセット", auto_hint:"主要銘柄から自動", quick_add:"タップで追加：", scan_from:"開始日", scan_to:"終了日",
+    tunable:"調整パラメータ", capital:"総資金", max_risk:"最大リスク %", rs_lookback:"RS 参照日数", rs_pass:"RS 通過 ≥", target:"目標リターン %", run_at:"実行時刻 (UTC+8)",
+    custom_flags:"カスタムフラグ", flag_web:"-WebData（最新ニュース使用）", flag_diag:"-Diagnostics（詳細リクエスト）",
+    btn_generate:"▶ プロンプト生成", s1t:"生成", s1d:"入力を設定しボタンを押す。", s2t:"コピー", s2d:"コピーを押す。", s3t:"claude.ai に貼付", s3d:"claude.ai を開き貼付・送信。",
+    generated:"生成されたプロンプト", btn_copy:"⧉ コピー", btn_dltxt:"⬇ .txt", btn_open:"↗ claude.ai",
+    manage:"銘柄管理（拡張可能）", code_ph:"コード", name_ph:"名称", indname_ph:"新しい業種名",
+    btn_add:"＋ 銘柄追加", btn_addind:"＋ 業種追加", btn_export:"⬇ JSON書出", btn_import:"⬆ JSON読込", btn_reset:"↺ リセット",
+    manage_note:"自分の銘柄・業種を追加できます。データはブラウザに自動保存。書出／読込でバックアップや端末間移動が可能。× は自分で追加した削除可能な項目です。",
+    log_title:"委員会 — セッションログ", btn_clear:"クリア",
+    disclaimer:"⚠ 教育目的のみ。投資助言ではありません。市場にはリスクがあります。",
+    changelog:"▸ 変更履歴 / バージョン履歴",
+    th_darktech:"ダークテック", th_lighttech:"ライトテック", th_blackwhite:"黒地に白", th_whiteblack:"白地に黒",
+    L_boot:"起動 — 株式投資意思決定委員会 v"+CONFIG.APP_VERSION+"（プランA、オフライン）。",
+    L_ready:"準備完了。入力後「プロンプト生成」を押してください。",
+    L_built:"プロンプト生成 — 主要銘柄=", L_compare:" · 比較=", L_none:"（なし）",
+    L_copyok:"クリップボードにコピーしました。claude.ai に貼付（Ctrl+V）。", L_copylegacy:"コピーしました（互換モード）。", L_copyfail:"自動コピーがブロックされました。手動で全選択コピー。",
+    L_nocopy:"コピー対象がありません。先に生成してください。", L_nogen:"先に生成してください。", L_txt:"プロンプトをダウンロード（.txt）。", L_oslog:"OSログをダウンロード（.log）。", L_htmllog:"HTMLログをダウンロード（.html）。",
+    L_sched:"スケジュール案内：(UTC+8) を設定。プランAは手動です。時刻になったら貼付 → ",
+    L_lang:"言語を切替：", L_theme:"テーマを切替：", L_autocat:"主要銘柄から業種を自動切替：", L_nocat:"主要銘柄が内蔵コードではありません。業種を手動で選択してください。",
+    L_added:"銘柄を追加：", L_removed:"カスタム銘柄を削除：", L_addind:"業種を追加：", L_dup:"既に存在します。追加しませんでした。",
+    L_needcode:"コードと名称を入力してください。", L_needind:"業種名を入力してください。",
+    L_exported:"カスタム一覧を書き出しました（committee_catalog.json）。", L_imported:"カスタム一覧を読み込み統合しました。", L_importfail:"読込失敗：JSON 形式が不正です。",
+    L_reset:"内蔵一覧にリセットしました。", L_nostore:"この環境では自動保存不可（サンドボックス）。書出／読込をご利用ください。", L_loaded:"保存済み一覧を読み込みました。",
+    DETECT_OK:"✓ ", DETECT_NO:"内蔵外"
+  }
+};
+var LANG = "zh";
+function t(key){ return (I18N[LANG] && I18N[LANG][key] !== undefined) ? I18N[LANG][key] : key; }
+
+// ============================================================
+// 内蔵カタログ(BUILTIN catalog) : read-only seed data
+// 注意 : convenience list, not authoritative — verify with broker.
+// ============================================================
+var BUILTIN = {
+  ai_server  : { label:{zh:"AI 伺服器供應鏈", en:"AI server supply chain", ja:"AIサーバー"}, items:[["2317","鴻海"],["2382","廣達"],["3231","緯創"],["6669","緯穎"],["2356","英業達"],["2376","技嘉"],["4938","和碩"],["3706","神達"]] },
+  semi       : { label:{zh:"半導體",          en:"Semiconductors",       ja:"半導体"},     items:[["2330","台積電"],["2454","聯發科"],["2303","聯電"],["3034","聯詠"],["3443","創意"],["2408","南亞科"]] },
+  etf        : { label:{zh:"ETF",             en:"ETF",                  ja:"ETF"},        items:[["0050","元大台灣50"],["0056","元大高股息"],["006208","富邦台50"],["00878","國泰永續高股息"],["00881","國泰台灣科技龍頭"],["00935","野村臺灣新科技50"]] },
+  finance    : { label:{zh:"金融",            en:"Financials",           ja:"金融"},       items:[["2881","富邦金"],["2882","國泰金"],["2891","中信金"],["2886","兆豐金"],["2884","玉山金"],["2885","元大金"]] },
+  traditional: { label:{zh:"傳產(鋼鐵塑化)",  en:"Traditional",          ja:"伝統産業"},   items:[["2002","中鋼"],["1301","台塑"],["1303","南亞"],["1326","台化"],["6505","台塑化"],["1216","統一"]] },
+  shipping   : { label:{zh:"航運",            en:"Shipping",             ja:"海運"},       items:[["2603","長榮"],["2609","陽明"],["2615","萬海"],["2610","華航"],["2618","長榮航"]] }
+};
+var USERCAT = {};            // ユーザー追加分(User additions)
+var CATALOG = {};            // 実行時の統合(Merged runtime)
+var SYMBOL2CAT = {};         // 反査(Reverse index)
+var CURCAT = "ai_server";
+
+// ============================================================
+// 永続化(えいぞくか / Eizokuka) : localStorage with sandbox fallback
+// ============================================================
+function saveUserCat(){
+  try{ localStorage.setItem(CONFIG.STORE_KEY, JSON.stringify(USERCAT)); return true; }
+  catch(e){ return false; }
+}
+function loadUserCat(){
+  try{
+    var raw = localStorage.getItem(CONFIG.STORE_KEY);
+    if(raw){ USERCAT = JSON.parse(raw) || {}; return true; }
+  }catch(e){}
+  return false;
+}
+
+// ============================================================
+// 統合(Merge) : BUILTIN + USERCAT -> CATALOG, then rebuild index
+// ============================================================
+function mergeCatalog(){
+  CATALOG = {};
+  var k, i;
+  for(k in BUILTIN){
+    CATALOG[k] = { label:{zh:BUILTIN[k].label.zh,en:BUILTIN[k].label.en,ja:BUILTIN[k].label.ja},
+                   items:BUILTIN[k].items.map(function(x){ return [x[0],x[1],false]; }) };
+  }
+  for(k in USERCAT){
+    if(!CATALOG[k]){ CATALOG[k] = { label:{zh:USERCAT[k].label.zh,en:USERCAT[k].label.en,ja:USERCAT[k].label.ja}, items:[] }; }
+    var have = {}; CATALOG[k].items.forEach(function(it){ have[it[0]] = true; });
+    USERCAT[k].items.forEach(function(it){ if(!have[it[0]]){ CATALOG[k].items.push([it[0],it[1],true]); } });
+  }
+  SYMBOL2CAT = {};
+  for(k in CATALOG){ for(i=0;i<CATALOG[k].items.length;i++){ SYMBOL2CAT[CATALOG[k].items[i][0]] = k; } }
+}
+
+// ============================================================
+// 時刻(Jikoku) : UTC+8 timestamp
+// ============================================================
+function nowStamp(){
+  var d = new Date(Date.now() + (8*60 + new Date().getTimezoneOffset())*60000);
+  function p(n){ return String(n).padStart(2,"0"); }
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+}
+
+// ============================================================
+// ログ(Log) : colored terminal line
+// ============================================================
+var LOGBUF = [];
+function cssVar(name){ return getComputedStyle(document.body).getPropertyValue(name).trim() || "#dbe4ee"; }
+function log(level, msg){
+  var ts = nowStamp(); LOGBUF.push({ ts:ts, level:level, msg:msg });
+  var el = document.getElementById("log"); var line = document.createElement("div");
+  if(level === "CRITICAL"){ line.style.background = cssVar("--critical-bg"); line.style.color = cssVar("--critical-ink"); line.style.padding="0 4px"; line.style.borderRadius="3px"; }
+  else { line.style.color = cssVar("--"+LVL[level]) || cssVar("--ink"); }
+  line.textContent = "["+ts+"] "+ (level+"        ").slice(0,8) +" "+ msg;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================
+// 補助(Hojo) : helpers
+// ============================================================
+function $(id){ return document.getElementById(id); }
+function getFlag(name){ var n=document.querySelector('.toggle[data-flag="'+name+'"]'); return n && n.classList.contains("on"); }
+var toggles = document.querySelectorAll(".toggle");
+for(var ti=0;ti<toggles.length;ti++){ toggles[ti].addEventListener("click",(function(x){return function(){x.classList.toggle("on");};})(toggles[ti])); }
+function norm(s){ return s.trim().replace(/\.tw$/i,"") + ".TW"; }
+
+// ============================================================
+// 業種選單(Industry select) + チップ(chips) rendering
+// ============================================================
+function fillIndustrySelect(){
+  var sel = $("industry"); sel.innerHTML = "";
+  for(var key in CATALOG){ var o=document.createElement("option"); o.value=key; o.textContent=CATALOG[key].label[LANG]||CATALOG[key].label.en; sel.appendChild(o); }
+  if(!CATALOG[CURCAT]){ CURCAT = Object.keys(CATALOG)[0]; }
+  sel.value = CURCAT;
+  var msel = $("m-cat");
+  if(msel){ msel.innerHTML=""; for(var k2 in CATALOG){ var o2=document.createElement("option"); o2.value=k2; o2.textContent=CATALOG[k2].label[LANG]||CATALOG[k2].label.en; msel.appendChild(o2); } msel.value=CURCAT; }
+}
+function buildChips(){
+  var box = $("chips");
+  var olds = box.querySelectorAll(".qchip"); for(var k=0;k<olds.length;k++){ olds[k].remove(); }
+  if(!CATALOG[CURCAT]){ return; }
+  var items = CATALOG[CURCAT].items;
+  for(var j=0;j<items.length;j++){
+    (function(item, catKey){
+      var b = document.createElement("span");
+      b.className = "qchip" + (item[2] ? " user" : "");
+      var label = document.createElement("span"); label.textContent = item[0] + " " + item[1];
+      label.addEventListener("click", function(){ addCompare(item[0]); });
+      b.appendChild(label);
+      if(item[2]){ // 自訂項目(User item) : show removable ×
+        var x = document.createElement("span"); x.className="x"; x.textContent="×";
+        x.addEventListener("click", function(ev){ ev.stopPropagation(); removeSymbol(catKey, item[0]); });
+        b.appendChild(x);
+      }
+      box.appendChild(b);
+    })(items[j], CURCAT);
+  }
+}
+function addCompare(code){
+  var ta = $("compare");
+  var cur = ta.value.split(/[\s,;]+/).filter(Boolean).map(function(s){return s.replace(/\.tw$/i,"");});
+  if(cur.indexOf(code) === -1){ cur.push(code); ta.value = cur.join(", "); onGenerate(); }
+}
+function autoDetectIndustry(){
+  var tok = $("main").value.split(/[\s,;]+/).filter(Boolean)[0];
+  if(!tok){ return; }
+  var code = tok.replace(/\.tw$/i,"");
+  if(SYMBOL2CAT[code]){
+    $("detected").textContent = t("DETECT_OK") + (CATALOG[SYMBOL2CAT[code]].label[LANG]||"");
+    if(SYMBOL2CAT[code] !== CURCAT){ CURCAT = SYMBOL2CAT[code]; $("industry").value=CURCAT; if($("m-cat"))$("m-cat").value=CURCAT; buildChips(); log("INFO", t("L_autocat")+(CATALOG[CURCAT].label[LANG]||CURCAT)); }
+  } else { $("detected").textContent = t("DETECT_NO"); }
+}
+
+// ============================================================
+// 拡張機能(かくちょうきのう / Kakuchou kinou) : add / remove / etc.
+// ============================================================
+function addSymbol(catKey, code, name){
+  code = (code||"").trim().replace(/\.tw$/i,""); name = (name||"").trim();
+  if(!code || !name){ log("FAIL", t("L_needcode")); return; }
+  if(SYMBOL2CAT[code]){ log("FAIL", t("L_dup")); return; }
+  if(!USERCAT[catKey]){
+    var lab = BUILTIN[catKey] ? BUILTIN[catKey].label : (CATALOG[catKey]?CATALOG[catKey].label:{zh:catKey,en:catKey,ja:catKey});
+    USERCAT[catKey] = { label:{zh:lab.zh,en:lab.en,ja:lab.ja}, items:[] };
+  }
+  USERCAT[catKey].items.push([code, name]);
+  saveUserCat(); mergeCatalog(); fillIndustrySelect(); buildChips();
+  log("PASS", t("L_added") + code + " " + name);
+}
+function removeSymbol(catKey, code){
+  if(USERCAT[catKey]){
+    USERCAT[catKey].items = USERCAT[catKey].items.filter(function(it){ return it[0] !== code; });
+    if(USERCAT[catKey].items.length === 0 && !BUILTIN[catKey]){ delete USERCAT[catKey]; if(CURCAT===catKey){ CURCAT = Object.keys(BUILTIN)[0]; } }
+    saveUserCat(); mergeCatalog(); fillIndustrySelect(); buildChips();
+    log("PASS", t("L_removed") + code);
+  }
+}
+function addIndustry(name){
+  name = (name||"").trim();
+  if(!name){ log("FAIL", t("L_needind")); return; }
+  var key = "user_" + Date.now();
+  USERCAT[key] = { label:{zh:name,en:name,ja:name}, items:[] };
+  saveUserCat(); mergeCatalog(); CURCAT = key; fillIndustrySelect(); buildChips();
+  log("PASS", t("L_addind") + name);
+}
+function exportCatalog(){
+  var data = JSON.stringify(USERCAT, null, 2);
+  download("committee_catalog.json", data, "application/json");
+  log("PASS", t("L_exported"));
+}
+function importCatalog(text){
+  try{
+    var obj = JSON.parse(text);
+    if(typeof obj !== "object" || obj === null){ throw new Error("bad"); }
+    for(var k in obj){
+      if(!obj[k] || !obj[k].items){ continue; }
+      if(!USERCAT[k]){ USERCAT[k] = { label:obj[k].label || {zh:k,en:k,ja:k}, items:[] }; }
+      var have={}; USERCAT[k].items.forEach(function(it){ have[it[0]]=true; });
+      obj[k].items.forEach(function(it){ if(it && it[0] && !have[it[0]]){ USERCAT[k].items.push([String(it[0]), String(it[1]||it[0])]); } });
+    }
+    saveUserCat(); mergeCatalog(); fillIndustrySelect(); buildChips();
+    log("PASS", t("L_imported"));
+  }catch(e){ log("ERROR", t("L_importfail")); }
+}
+function resetCatalog(){ USERCAT = {}; saveUserCat(); mergeCatalog(); CURCAT = Object.keys(BUILTIN)[0]; fillIndustrySelect(); buildChips(); log("PASS", t("L_reset")); }
+
+// ============================================================
+// パラメータ読取(Read params) + プロンプト生成(Build prompt)
+// ============================================================
+function readParams(){
+  var mainTokens = $("main").value.split(/[\s,;]+/).filter(Boolean);
+  return { main:norm(mainTokens[0]||"3706"), compare:$("compare").value.split(/[\s,;]+/).filter(Boolean).map(norm),
+    from:$("from").value, to:$("to").value, capital:$("capital").value, risk:$("risk").value,
+    rslb:$("rslb").value, rspass:$("rspass").value, target:$("target").value, sched:$("sched").value,
+    web:getFlag("web"), diag:getFlag("diag") };
+}
+function buildPrompt(p){
+  var L = [];
+  L.push("【AI 股市投資決策委員會 v"+CONFIG.APP_VERSION+"】請你依序扮演三位 Agent，分析以下台股並產出報告：");
+  L.push("- 主要標的(MAIN)："+p.main);
+  L.push("- 比較組(COMPARE)："+(p.compare.length ? p.compare.join("、") : "（無，請改以相對大盤評估）"));
+  L.push("- 觀察區間："+p.from+" ~ "+p.to);
+  L.push("- 總資金："+p.capital+"、單筆最大風險："+p.risk+"%、RS回看："+p.rslb+"日、RS至少通過："+p.rspass+"檔、目標報酬："+p.target+"%");
+  L.push(p.web ? "- 可用最新網路消息（無權威來源的精確數字請標【無資料】）" : "- 不查網路，未知數字一律標【無資料】");
+  if(p.diag){ L.push("- 診斷模式：請逐步列出每位 Agent 的推理依據與資料來源。"); }
+  L.push("流程：①數據研究員彙整消息面與產業動態 ②基本面分析師評估估值與相對強弱(RS) ③風控與決策官依資金與風險上限計算部位並給最終決策。");
+  L.push("請全程繁體中文，最後嚴格輸出三個 Markdown 標題並附一行免責：");
+  L.push("## 股票基本盤勢"); L.push("## 核心策略分析"); L.push("## 風險提示");
+  return L.join("\n");
+}
+function onGenerate(){
+  var p = readParams();
+  if(p.sched){ log("INFO", t("L_sched")+p.sched); }
+  $("prompt").value = buildPrompt(p);
+  log("INFO", t("L_built")+p.main+t("L_compare")+(p.compare.length?p.compare.join(", "):t("L_none")));
+  log("PASS", t("L_ready"));
+}
+
+// ============================================================
+// コピー(Copy) + ダウンロード(Download)
+// ============================================================
+function onCopy(){
+  var text = $("prompt").value; if(!text){ log("FAIL", t("L_nocopy")); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){ log("PASS", t("L_copyok")); }).catch(function(){ legacyCopy(text); }); }
+  else { legacyCopy(text); }
+}
+function legacyCopy(text){
+  var ta = $("prompt"); ta.removeAttribute("readonly"); ta.focus(); ta.select();
+  var ok=false; try{ ok=document.execCommand("copy"); }catch(e){ ok=false; } ta.setAttribute("readonly","readonly");
+  if(ok){ log("PASS", t("L_copylegacy")); } else { log("FAIL", t("L_copyfail")); }
+}
+function download(name, text, mime){ var blob=new Blob([text],{type:mime}); var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+// ============================================================
+// 言語適用(Apply language) / テーマ適用(Apply theme)
+// ============================================================
+function applyLang(lang){
+  LANG = lang; document.documentElement.lang = (lang==="zh"?"zh-Hant":lang);
+  var nodes = document.querySelectorAll("[data-i18n]");
+  for(var i=0;i<nodes.length;i++){ var k=nodes[i].getAttribute("data-i18n"); nodes[i].textContent = t(k); }
+  var phs = document.querySelectorAll("[data-i18n-ph]");
+  for(var j=0;j<phs.length;j++){ phs[j].setAttribute("placeholder", t(phs[j].getAttribute("data-i18n-ph"))); }
+  fillIndustrySelect(); buildChips(); versionCheck(); onGenerate();
+}
+function applyTheme(theme){ document.body.setAttribute("data-theme", theme); }
+function versionCheck(){
+  var ok = (CONFIG.APP_VERSION === CONFIG.RECOMMENDED);
+  $("vtag").textContent = ok ? "PASS" : "FAIL"; $("vtag").style.color = ok ? cssVar("--pass") : cssVar("--fail"); $("vmsg").textContent = t("ver_ok");
+}
+function tickClock(){ var d=new Date(Date.now()+(8*60+new Date().getTimezoneOffset())*60000); function p(n){return String(n).padStart(2,"0");} $("clock").textContent = p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds()); }
+
+// ============================================================
+// イベント結線(Wire events)
+// ============================================================
+$("gen").addEventListener("click", onGenerate);
+$("copy").addEventListener("click", onCopy);
+$("open").addEventListener("click", function(){ window.open(CONFIG.CLAUDE_URL, "_blank"); });
+$("dltxt").addEventListener("click", function(){ var x=$("prompt").value; if(!x){log("FAIL",t("L_nogen"));return;} download("committee_prompt_"+nowStamp().replace(/[: ]/g,"-")+".txt", x, "text/plain"); log("PASS",t("L_txt")); });
+$("dllog").addEventListener("click", function(){
+  var head="# AI Stock Investment Committee — OS log\n# v"+CONFIG.APP_VERSION+" · "+nowStamp()+" (UTC+8)\n# Suggested path: /root/Documents/\n";
+  var body=LOGBUF.map(function(e){ return "["+e.ts+"] "+(e.level+"        ").slice(0,8)+" "+e.msg; }).join("\n");
+  download("committee_"+nowStamp().replace(/[: ]/g,"-")+".log", head+"\n"+body+"\n", "text/plain"); log("PASS",t("L_oslog"));
+});
+$("dlhtml").addEventListener("click", function(){
+  var rows=LOGBUF.map(function(e){ var c=(e.level==="CRITICAL")?cssVar("--critical-ink"):cssVar("--"+LVL[e.level]); return "<div><span style='color:#888'>["+e.ts+"]</span> <b style='color:"+c+"'>"+e.level+"</b> "+e.msg+"</div>"; }).join("\n");
+  var html="<!doctype html><meta charset='utf-8'><title>Committee log</title><body style='background:#070a0f;color:#dbe4ee;font:12px monospace;padding:16px'>"+rows+"</body>";
+  download("committee_"+nowStamp().replace(/[: ]/g,"-")+".html", html, "text/html"); log("PASS",t("L_htmllog"));
+});
+$("clr").addEventListener("click", function(){ LOGBUF=[]; $("log").innerHTML=""; });
+$("main").addEventListener("input", autoDetectIndustry);
+$("industry").addEventListener("change", function(){ CURCAT=this.value; if($("m-cat"))$("m-cat").value=CURCAT; buildChips(); });
+$("lang").addEventListener("change", function(){ applyLang(this.value); log("INFO", t("L_lang")+this.value); });
+$("theme").addEventListener("change", function(){ applyTheme(this.value); log("INFO", t("L_theme")+this.value); });
+// 拡張(Manage) events
+$("m-cat").addEventListener("change", function(){ CURCAT=this.value; $("industry").value=CURCAT; buildChips(); });
+$("m-add").addEventListener("click", function(){ addSymbol($("m-cat").value, $("m-code").value, $("m-name").value); $("m-code").value=""; $("m-name").value=""; });
+$("m-addind").addEventListener("click", function(){ addIndustry($("m-indname").value); $("m-indname").value=""; });
+$("m-export").addEventListener("click", exportCatalog);
+$("m-import").addEventListener("click", function(){ $("m-file").click(); });
+$("m-file").addEventListener("change", function(ev){ var f=ev.target.files[0]; if(!f){return;} var r=new FileReader(); r.onload=function(){ importCatalog(String(r.result)); }; r.readAsText(f); ev.target.value=""; });
+$("m-reset").addEventListener("click", resetCatalog);
+
+// ============================================================
+// 起動(きどう / Kidou) : boot
+// ============================================================
+var stored = loadUserCat();         // ローカル保存を読込(Load local save)
+mergeCatalog();                     // BUILTIN + USERCAT
+fillIndustrySelect();
+buildChips();
+applyLang("zh");
+applyTheme("darktech");
+tickClock(); setInterval(tickClock, 1000);
+log("INFO", t("L_boot"));
+log("INFO", t("L_ready"));
+if(stored){ log("INFO", t("L_loaded")); }
+if(!saveUserCat()){ log("INFO", t("L_nostore")); }   // 沙箱なら通知(Notify if sandbox)
+</script>
+</body>
+</html>
