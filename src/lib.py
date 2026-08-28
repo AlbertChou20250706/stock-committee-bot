@@ -30,7 +30,11 @@ def rs_return(symbol: str, lookback_days: int) -> dict:
     rs_pct = (latest_close - baseline_close) / baseline_close * 100
 
     return {
-        "symbol": symbol,
+        # LINE auto-linkifies "NNNN.TW" as if it were a domain name (.TW is a
+        # real ccTLD), turning stock codes into broken clickable links in the
+        # message. Strip the yfinance suffix for display; the lookup above
+        # still uses the full symbol so config/symbol_names.json keys match.
+        "symbol": symbol.removesuffix(".TW").removesuffix(".TWO"),
         "name": symbol_name(symbol),
         "date_start": window.index[0].strftime("%Y-%m-%d"),
         "date_end": window.index[-1].strftime("%Y-%m-%d"),

@@ -47,8 +47,9 @@ def generate_one(target: dict, client: anthropic.Anthropic, system_prompt: str, 
         target_pct=params["target_pct"],
     )
 
+    display_main = target["main"].removesuffix(".TW").removesuffix(".TWO")
     user_content = (
-        f"以下是 {target['main']}（{lib.symbol_name(target['main'])}）的委員會分析資料（JSON），"
+        f"以下是 {display_main}（{lib.symbol_name(target['main'])}）的委員會分析資料（JSON），"
         "請依照系統提示撰寫報告：\n\n" + json.dumps(data, ensure_ascii=False, indent=2)
     )
 
