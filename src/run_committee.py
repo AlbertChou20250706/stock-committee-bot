@@ -58,7 +58,20 @@ def call_model(client: anthropic.Anthropic, system_prompt: str, user_content: st
                 "statementdog.com",
             ],
         }]
-    response = client.messages.create(**request_kwargs)
+    try:
+        response = client.messages.create(**request_kwargs)
+    except anthropic.BadRequestError as exc:
+        # Anthropic's crawler accessibility to a given domain can change over
+        # time (robots.txt / bot-blocking on the site's end); a domain it
+        # currently can't reach makes the whole request fail with a 400, not
+        # just that one search. Retry without web_search so a report still
+        # goes out rather than being dropped entirely.
+        if "not accessible to our user agent" in str(exc) and "tools" in request_kwargs:
+            print(f"warning: web_search domain access error, retrying without web_search: {exc}")
+            request_kwargs.pop("tools")
+            response = client.messages.create(**request_kwargs)
+        else:
+            raise
     return "".join(block.text for block in response.content if block.type == "text").strip()
 
 
