@@ -61,7 +61,20 @@ def generate_one(target: dict, client: anthropic.Anthropic, system_prompt: str, 
         messages=[{"role": "user", "content": user_content}],
     )
     if use_web_search:
-        request_kwargs["tools"] = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 3}]
+        request_kwargs["tools"] = [{
+            "type": "web_search_20260209",
+            "name": "web_search",
+            "max_uses": 3,
+            "allowed_domains": [
+                "tw.stock.yahoo.com",
+                "cnyes.com",
+                "money.udn.com",
+                "ctee.com.tw",
+                "moneydj.com",
+                "goodinfo.tw",
+                "statementdog.com",
+            ],
+        }]
 
     response = client.messages.create(**request_kwargs)
 
