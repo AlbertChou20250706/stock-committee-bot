@@ -83,8 +83,13 @@ def render_markdown(computed: dict, parsed: dict) -> str:
 
     inst = main.get("institutional")
     if inst and inst.get("total") is not None:
+        days_matched = inst.get("days_matched")
+        days_requested = inst.get("days_requested")
+        period_label = f"近{days_matched}日合計" if days_matched else "近期合計"
+        if days_matched and days_requested and days_matched < days_requested:
+            period_label += "，資料未全"
         lines += [
-            f"三大法人（張）：外資 {inst.get('foreign', 0):+,} / 投信 {inst.get('trust', 0):+,} "
+            f"三大法人（張，{period_label}）：外資 {inst.get('foreign', 0):+,} / 投信 {inst.get('trust', 0):+,} "
             f"/ 自營 {inst.get('dealer', 0):+,} ｜ 合計 {inst['total']:+,}"
         ]
 

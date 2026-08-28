@@ -67,3 +67,34 @@ def fetch_institutional_flow(symbol: str, trade_date: str) -> dict | None:
 
     print(f"warning: symbol {symbol} not found in TWSE T86 data for {trade_date}")
     return None
+
+
+def fetch_institutional_flow_range(symbol: str, trade_dates: list[str]) -> dict | None:
+    """Sum real per-day TWSE net buy/sell across trade_dates (e.g. one
+    report's trading week), instead of returning a single day's snapshot
+    that may not represent the period the report is actually covering.
+
+    A day TWSE has no data for (not yet published, holiday quirk) is
+    skipped rather than counted as zero. Returns None only if every day
+    failed, so callers can omit the table instead of showing a fabricated
+    or misleadingly partial figure. days_matched/days_requested are
+    included so a partial week (e.g. today's data not published yet) is
+    visible rather than silently presented as a full one.
+    """
+    totals = {"foreign": 0, "trust": 0, "dealer": 0, "total": 0}
+    matched_days = 0
+    for trade_date in trade_dates:
+        day = fetch_institutional_flow(symbol, trade_date)
+        if day is None:
+            continue
+        matched_days += 1
+        for key in totals:
+            if day.get(key) is not None:
+                totals[key] += day[key]
+
+    if matched_days == 0:
+        return None
+
+    totals["days_matched"] = matched_days
+    totals["days_requested"] = len(trade_dates)
+    return totals

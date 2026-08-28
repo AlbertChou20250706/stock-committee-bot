@@ -54,8 +54,13 @@ def institutional_line(inst: dict | None) -> dict | None:
     if not parts:
         return None
     total = inst["total"]
+    days_matched = inst.get("days_matched")
+    days_requested = inst.get("days_requested")
+    period_label = f"近{days_matched}日合計" if days_matched else "近期合計"
+    if days_matched and days_requested and days_matched < days_requested:
+        period_label += "・資料未全"
     return text(
-        f"三大法人（張）：{' / '.join(parts)} ｜ 合計 {total:+,}",
+        f"三大法人（張・{period_label}）：{' / '.join(parts)} ｜ 合計 {total:+,}",
         size="xxs",
         color=change_color(total) if total != 0 else MUTED,
         margin="xs",

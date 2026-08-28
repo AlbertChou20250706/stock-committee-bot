@@ -6,27 +6,32 @@ import pathlib
 
 import yfinance as yf
 
-from twse_institutional import fetch_institutional_flow
+from twse_institutional import fetch_institutional_flow_range
 
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 SYMBOL_NAMES_PATH = BASE_DIR / "config" / "symbol_names.json"
 
 _symbol_names = json.loads(SYMBOL_NAMES_PATH.read_text(encoding="utf-8"))
 
+INSTITUTIONAL_WINDOW_DAYS = 5  # a calendar trading week's worth of sessions
+
 
 def symbol_name(symbol: str) -> str:
     return _symbol_names.get(symbol, symbol)
 
 
-def rs_return(symbol: str, lookback_days: int) -> dict:
-    """RS 區間累積報酬率 = (最新收盤價 - 回看起始收盤價) / 回看起始收盤價 * 100."""
+def fetch_price_window(symbol: str, lookback_days: int):
     history = yf.Ticker(symbol).history(period=f"{lookback_days + 15}d")
     window = history.tail(lookback_days + 1)
     if len(window) < lookback_days + 1:
         raise RuntimeError(
             f"not enough price history for {symbol}: need {lookback_days + 1} rows, got {len(window)}"
         )
+    return window
 
+
+def summarize_rs_return(symbol: str, window) -> dict:
+    """RS 區間累積報酬率 = (最新收盤價 - 回看起始收盤價) / 回看起始收盤價 * 100."""
     baseline_close = float(window["Close"].iloc[0])
     latest_close = float(window["Close"].iloc[-1])
     rs_pct = (latest_close - baseline_close) / baseline_close * 100
@@ -44,6 +49,11 @@ def rs_return(symbol: str, lookback_days: int) -> dict:
         "latest_close": round(latest_close, 2),
         "rs_return_pct": round(rs_pct, 2),
     }
+
+
+def rs_return(symbol: str, lookback_days: int) -> dict:
+    window = fetch_price_window(symbol, lookback_days)
+    return summarize_rs_return(symbol, window)
 
 
 def compute_position(
@@ -83,10 +93,16 @@ def build_committee_data(
     stop_loss_pct: float,
     target_pct: float,
 ) -> dict:
-    main_data = rs_return(main, rs_lookback_days)
+    main_window = fetch_price_window(main, rs_lookback_days)
+    main_data = summarize_rs_return(main, main_window)
     # Institutional flow only makes sense for MAIN (the committee's actual
     # subject), not the COMPARE basket — real TWSE data, never model-guessed.
-    main_data["institutional"] = fetch_institutional_flow(main_data["symbol"], main_data["date_end"])
+    # TWSE only publishes one trading day at a time, never an aggregate, so
+    # sum the most recent calendar trading week (independent of how long
+    # rs_lookback_days is) rather than a single day, which would be an
+    # unrepresentative one-day snapshot for a "recent flow" read.
+    recent_dates = [d.strftime("%Y-%m-%d") for d in main_window.index[-INSTITUTIONAL_WINDOW_DAYS:]]
+    main_data["institutional"] = fetch_institutional_flow_range(main_data["symbol"], recent_dates)
 
     compare_data = []
     for symbol in compare:
