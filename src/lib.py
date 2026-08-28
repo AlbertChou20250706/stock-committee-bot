@@ -6,6 +6,8 @@ import pathlib
 
 import yfinance as yf
 
+from twse_institutional import fetch_institutional_flow
+
 BASE_DIR = pathlib.Path(__file__).resolve().parent.parent
 SYMBOL_NAMES_PATH = BASE_DIR / "config" / "symbol_names.json"
 
@@ -82,6 +84,9 @@ def build_committee_data(
     target_pct: float,
 ) -> dict:
     main_data = rs_return(main, rs_lookback_days)
+    # Institutional flow only makes sense for MAIN (the committee's actual
+    # subject), not the COMPARE basket — real TWSE data, never model-guessed.
+    main_data["institutional"] = fetch_institutional_flow(main_data["symbol"], main_data["date_end"])
 
     compare_data = []
     for symbol in compare:
