@@ -34,6 +34,15 @@ def summarize_rs_return(symbol: str, window) -> dict:
     """RS 區間累積報酬率 = (最新收盤價 - 回看起始收盤價) / 回看起始收盤價 * 100."""
     baseline_close = float(window["Close"].iloc[0])
     latest_close = float(window["Close"].iloc[-1])
+    # yfinance can return NaN for a single row (data-provider gap) without
+    # raising anything — NaN silently survives the arithmetic below and, once
+    # JSON-serialized as a bare `NaN` token, reads to the model like a missing
+    # value, which it then renders as literal "NA" in the report. Treat it as
+    # the same failure as not enough price history, not a value to pass on.
+    if not (math.isfinite(baseline_close) and math.isfinite(latest_close)):
+        raise RuntimeError(
+            f"non-finite price data for {symbol} (baseline={baseline_close}, latest={latest_close})"
+        )
     rs_pct = (latest_close - baseline_close) / baseline_close * 100
 
     return {

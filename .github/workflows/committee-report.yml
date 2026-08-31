@@ -3,7 +3,7 @@ name: committee-report
 on:
   schedule:
     # 暫時改成每天發送，方便測試期間快速找問題；穩定後記得改回每週一
-    - cron: '0 23 * * *'   # UTC 每日 23:00 = 台灣每日 07:00 — 跑 config/must_watch.json 全部標的
+    - cron: '30 21 * * *'   # UTC 每日 21:30 = 台灣每日 05:30 — 跑 config/must_watch.json 全部標的
   workflow_dispatch:
     inputs:
       main:

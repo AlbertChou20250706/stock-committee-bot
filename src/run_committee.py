@@ -187,7 +187,11 @@ def main() -> None:
     processed = []
     for target in targets:
         print(f"generating report for {target['main']}...")
-        safe_symbol = process_target(target, client, system_prompt, use_web_search, params, today)
+        try:
+            safe_symbol = process_target(target, client, system_prompt, use_web_search, params, today)
+        except RuntimeError as exc:
+            print(f"warning: skipping {target['main']}: {exc}")
+            continue
         processed.append(safe_symbol)
         print(f"done with {safe_symbol}")
 
