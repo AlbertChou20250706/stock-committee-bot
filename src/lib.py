@@ -22,6 +22,13 @@ def symbol_name(symbol: str) -> str:
 
 def fetch_price_window(symbol: str, lookback_days: int):
     history = yf.Ticker(symbol).history(period=f"{lookback_days + 15}d")
+    # Yahoo's feed settles the official EOD close for TW-listed ETFs (0050,
+    # 00935, ...) later than for individual stocks — the most recent
+    # session can already appear as a row with Open filled in but Close
+    # still NaN. Drop any such not-yet-settled trailing rows and fall back
+    # to the last settled day, instead of discarding the whole symbol.
+    while not history.empty and not math.isfinite(history["Close"].iloc[-1]):
+        history = history.iloc[:-1]
     window = history.tail(lookback_days + 1)
     if len(window) < lookback_days + 1:
         raise RuntimeError(
