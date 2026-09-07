@@ -25,6 +25,12 @@ def push(token: str, target_id: str, message: dict) -> None:
         json={"to": target_id, "messages": [message]},
         timeout=30,
     )
+    if not response.ok:
+        # requests.raise_for_status() only reports the HTTP status, not LINE's
+        # own error body — which is where the actual reason (bad target id,
+        # bot not in that group, etc.) lives. Print it before raising so a
+        # failed run's log says why, not just that it failed.
+        print(f"LINE API error for target {target_id}: {response.status_code} {response.text}")
     response.raise_for_status()
 
 

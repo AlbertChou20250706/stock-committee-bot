@@ -28,6 +28,10 @@ def main() -> None:
             json={"to": target_id, "messages": [{"type": "text", "text": text}]},
             timeout=30,
         )
+        if not response.ok:
+            # See send_line.py: LINE's actual error reason lives in the
+            # response body, not the HTTP status raise_for_status() reports.
+            print(f"LINE API error for target {target_id}: {response.status_code} {response.text}")
         response.raise_for_status()
         print(f"failure alert sent to {target_id}")
 
