@@ -26,16 +26,16 @@ src/notify_failure.py 任一步驟失敗時，發一則簡短告警訊息
 ```
 
 `.github/workflows/committee-report.yml`：
-- **排程**：每週一台灣時間 08:00，自動跑 `config/must_watch.json` 裡的全部標的（目前是 3706 神達、00935 野村臺灣新科技50、009816 凱基台灣TOP50）
+- **排程**：每週一台灣時間 05:10（`ai-stock-weekly-report-bot` 的台股週報 05:00、美股週報 05:20 之間），自動跑 `config/must_watch.json` 裡的全部標的（目前是 3706 神達、00935 野村臺灣新科技50、009816 凱基台灣TOP50、2303 聯電）
 - **手動觸發**：GitHub 網頁上 **Run workflow**，可以填 `main`／`compare` 臨時分析任意一組標的，不用等排程
 
 ## 必看代號清單（可擴充）
 
 `config/must_watch.json`：每筆是 `{ main, compare, label }`，之後要加新的必看代號，直接在這個 JSON 加一筆即可，不用改程式碼。`config/symbol_names.json` 是代號→中文名稱對照表，同樣可自行擴充。
 
-## 目前狀態：個人測試模式
+## 目前狀態：正式群組推播
 
-`LINE_PUSH_TARGET_IDS` 目前應該填**你自己的 LINE User ID**（U 開頭），先驗證整條流程穩定，之後才切換成正式群組的 Group ID。
+`LINE_PUSH_TARGET_IDS` 目前設定為 LINE 群組的 Group ID（C 開頭），委員會報告直接推播到群組，不再發給個人 LINE。
 
 ## 設定 GitHub Secrets
 
@@ -45,7 +45,7 @@ Settings → Secrets and variables → Actions，新增：
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude API key（可跟 `ai-stock-weekly-report-bot` 共用同一組） |
 | `LINE_CHANNEL_ACCESS_TOKEN` | 沿用既有 ChouAP.Cloud channel 的 long-lived token |
-| `LINE_PUSH_TARGET_IDS` | 個人測試階段填自己的 User ID；正式階段換成群組 Group ID（逗號分隔多個） |
+| `LINE_PUSH_TARGET_IDS` | 推播對象，LINE User ID（U 開頭）或 Group ID（C 開頭），可逗號分隔多個 |
 
 ## 本機測試
 
