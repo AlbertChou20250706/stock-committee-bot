@@ -2,9 +2,9 @@ name: committee-report
 
 on:
   schedule:
-    # 每週一台灣 05:10 發送。UTC 用週日 21:10，因為 UTC+8 換算會跨過午夜：
-    # UTC 週日 21:10 = 台灣週一 05:10。
-    - cron: '10 21 * * 0'   # UTC 每週日 21:10 = 台灣每週一 05:10 — 跑 config/must_watch.json 全部標的
+    # 每週一台灣 04:10 發送。UTC 用週日 20:10，因為 UTC+8 換算會跨過午夜：
+    # UTC 週日 20:10 = 台灣週一 04:10。
+    - cron: '10 20 * * 0'   # UTC 每週日 20:10 = 台灣每週一 04:10 — 跑 config/must_watch.json 全部標的
   workflow_dispatch:
     inputs:
       main:

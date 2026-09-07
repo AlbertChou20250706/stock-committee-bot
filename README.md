@@ -26,7 +26,7 @@ src/notify_failure.py 任一步驟失敗時，發一則簡短告警訊息
 ```
 
 `.github/workflows/committee-report.yml`：
-- **排程**：每週一台灣時間 05:10（`ai-stock-weekly-report-bot` 的台股週報 05:00、美股週報 05:20 之間），自動跑 `config/must_watch.json` 裡的全部標的（目前是 3706 神達、00935 野村臺灣新科技50、009816 凱基台灣TOP50、2303 聯電）
+- **排程**：每週一台灣時間 04:10（`ai-stock-weekly-report-bot` 的台股週報 04:00、美股週報 04:20 之間），自動跑 `config/must_watch.json` 裡的全部標的（目前是 3706 神達、00935 野村臺灣新科技50、009816 凱基台灣TOP50、2303 聯電）
 - **手動觸發**：GitHub 網頁上 **Run workflow**，可以填 `main`／`compare` 臨時分析任意一組標的，不用等排程
 
 ## 必看代號清單（可擴充）
