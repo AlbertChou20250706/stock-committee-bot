@@ -11,10 +11,9 @@ import os
 import pathlib
 from datetime import date
 
-import anthropic
-
 import build_flex
 import lib
+from claude_cli import call_claude
 from parse_committee import parse_sections
 from targets import load_targets
 
@@ -23,8 +22,17 @@ SYSTEM_PROMPT_PATH = BASE_DIR / "prompts" / "system_prompt.md"
 ARCHIVE_DIR = BASE_DIR / "reports"
 OUTPUT_DIR = BASE_DIR / "output"
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5")
 DISCLAIMER = "投資一定有風險，基金/ETF/股票投資有賺有賠，以上資訊非投資建議"
+
+WEB_SEARCH_DOMAINS = [
+    "tw.stock.yahoo.com",
+    "cnyes.com",
+    "money.udn.com",
+    "ctee.com.tw",
+    "moneydj.com",
+    "goodinfo.tw",
+    "statementdog.com",
+]
 
 
 def build_user_content(target: dict, computed: dict) -> str:
@@ -35,44 +43,9 @@ def build_user_content(target: dict, computed: dict) -> str:
     )
 
 
-def call_model(client: anthropic.Anthropic, system_prompt: str, user_content: str, use_web_search: bool) -> str:
-    request_kwargs = dict(
-        model=MODEL,
-        max_tokens=16000,
-        output_config={"effort": "medium"},
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_content}],
-    )
-    if use_web_search:
-        request_kwargs["tools"] = [{
-            "type": "web_search_20260209",
-            "name": "web_search",
-            "max_uses": 3,
-            "allowed_domains": [
-                "tw.stock.yahoo.com",
-                "cnyes.com",
-                "money.udn.com",
-                "ctee.com.tw",
-                "moneydj.com",
-                "goodinfo.tw",
-                "statementdog.com",
-            ],
-        }]
-    try:
-        response = client.messages.create(**request_kwargs)
-    except anthropic.BadRequestError as exc:
-        # Anthropic's crawler accessibility to a given domain can change over
-        # time (robots.txt / bot-blocking on the site's end); a domain it
-        # currently can't reach makes the whole request fail with a 400, not
-        # just that one search. Retry without web_search so a report still
-        # goes out rather than being dropped entirely.
-        if "not accessible to our user agent" in str(exc) and "tools" in request_kwargs:
-            print(f"warning: web_search domain access error, retrying without web_search: {exc}")
-            request_kwargs.pop("tools")
-            response = client.messages.create(**request_kwargs)
-        else:
-            raise
-    return "".join(block.text for block in response.content if block.type == "text").strip()
+def call_model(system_prompt: str, user_content: str, use_web_search: bool) -> str:
+    domains = WEB_SEARCH_DOMAINS if use_web_search else None
+    return call_claude(system_prompt, user_content, allowed_domains=domains)
 
 
 def render_markdown(computed: dict, parsed: dict) -> str:
@@ -129,7 +102,6 @@ def render_markdown(computed: dict, parsed: dict) -> str:
 
 def process_target(
     target: dict,
-    client: anthropic.Anthropic,
     system_prompt: str,
     use_web_search: bool,
     params: dict,
@@ -145,7 +117,7 @@ def process_target(
         stop_loss_pct=params["stop_loss_pct"],
         target_pct=params["target_pct"],
     )
-    raw_text = call_model(client, system_prompt, build_user_content(target, computed), use_web_search)
+    raw_text = call_model(system_prompt, build_user_content(target, computed), use_web_search)
 
     safe_symbol = target["main"].replace(".", "_")
     parsed = parse_sections(raw_text)
@@ -168,7 +140,6 @@ def process_target(
 def main() -> None:
     targets = load_targets()
     system_prompt = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
-    client = anthropic.Anthropic()
 
     params = {
         "rs_lookback": int(os.environ.get("RS_LOOKBACK", "25")),
@@ -188,7 +159,7 @@ def main() -> None:
     for target in targets:
         print(f"generating report for {target['main']}...")
         try:
-            safe_symbol = process_target(target, client, system_prompt, use_web_search, params, today)
+            safe_symbol = process_target(target, system_prompt, use_web_search, params, today)
         except RuntimeError as exc:
             print(f"warning: skipping {target['main']}: {exc}")
             continue
