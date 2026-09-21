@@ -1,0 +1,21 @@
+name: check-line-quota
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query LINE message quota
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+        run: |
+          echo "=== plan limit (message/quota) ==="
+          curl -s -X GET https://api.line.me/v2/bot/message/quota \
+            -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN"
+          echo
+          echo "=== usage this month (message/quota/consumption) ==="
+          curl -s -X GET https://api.line.me/v2/bot/message/quota/consumption \
+            -H "Authorization: Bearer $LINE_CHANNEL_ACCESS_TOKEN"
+          echo
